@@ -1,0 +1,22 @@
+# Ignore build outputs and compiled files
+build/
+dist/
+public/build/
+.claude
+.agents
+.devin
+
+# Ignore dependency directories
+node_modules/
+
+# Ignore test coverage reports
+coverage/
+
+# Ignore minified or vendor files
+*.min.js
+vendor/
+
+# Ignore specific config or generated files
+package-lock.json
+next-env.d.ts
+

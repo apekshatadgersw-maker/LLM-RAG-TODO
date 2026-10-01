@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,7 +24,26 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body>
+        <div>
+          <h1 className="flex justify-center m-5">TASK APP</h1>
+          <hr></hr>
+          <div className="flex justify-center grid grid-rows-2">
+            {/* TODO:  NAV BAR */}
+            {/* <NavigationMenu>
+                <NavigationMenuList>
+                  <NavigationMenuItem className="flex">
+                    <NavigationMenuLink render={<Link href="/todo" />}>Home</NavigationMenuLink>
+                    <NavigationMenuLink render={<Link href="/dashboard" />}>Dashboard</NavigationMenuLink>
+                  </NavigationMenuItem>
+                </NavigationMenuList>
+              </NavigationMenu> */}
+          </div>
+        </div>
+        <main>
+          <Providers>{children}</Providers>
+        </main>
+      </body>
     </html>
   );
 }
