@@ -32,7 +32,11 @@ export async function POST(req: Request) {
 
 
 export async function PUT(req: Request) {
-  const tasks = await req.json();
+  const tasks: {
+    id: number;
+    completed: boolean;
+    subTasks: { id: number; completed: boolean }[];
+  }[] = await req.json();
 
   await prisma.$transaction(
     tasks.map((task) => {
