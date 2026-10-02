@@ -173,11 +173,13 @@ export default function Todo() {
   }, []);
 
   const handleAskCoach = async () => {
+    setLoading(true)
     const response = await fetch("/api/coach", {
       method: "GET",
     });
     const data = await response.json();
     setCoachAdvice(data.message);
+     setLoading(false)
   };
 
   return (
@@ -227,13 +229,9 @@ export default function Todo() {
               <Button
                 onClick={createTask}
                 disabled={loading || !todo}
-                className="h-11 bg-teal-700 text-white hover:bg-teal-800"
+                className="h-11 bg-teal-700 text-white hover:bg-teal-800 cursor-pointer"
               >
-                {loading ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  "Create with AI"
-                )}
+                  Create with AI
               </Button>
             </div>
           </div>
@@ -352,9 +350,9 @@ export default function Todo() {
           <div className="mt-4 flex flex-col gap-2">
             <Button
               onClick={handleAskCoach}
-              className="h-11 bg-white text-teal-900 hover:bg-white/90"
-            >
-              Ask coach
+              className="h-11 bg-white text-teal-900 hover:bg-white/90 cursor-pointer"
+            >                
+              Ask Coach 
             </Button>
           </div>
 
