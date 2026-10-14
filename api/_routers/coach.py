@@ -1,6 +1,6 @@
 from fastapi import APIRouter,Request, HTTPException
 router = APIRouter(prefix="/api/coach", tags=["todos_GET"])
-from database import supabase
+from api._database import supabase
 
 
 @router.get("")

@@ -1,4 +1,4 @@
-from database import supabase
+from api._database import supabase
 from datetime import date
 from typing import List, Literal
 from fastapi import FastAPI, HTTPException, APIRouter,Request

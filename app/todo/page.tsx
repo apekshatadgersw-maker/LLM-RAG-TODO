@@ -42,7 +42,6 @@ interface taskDb {
   SubTasks: subTask[];
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL;
 
 const exampleTasks = [
   "Prepare client presentation",
@@ -84,7 +83,7 @@ export default function Todo() {
   // Load all tasks (with DB ids) from the database
   const fetchTasks = async (): Promise<taskDb[]> => {
     try {
-      const res = await fetch(`${API}/api/todos`, { method: "GET" });
+      const res = await fetch("/api/todos", { method: "GET" });
       const tasks = await res.json();
       if (tasks.ok) {
         setError("");
@@ -101,7 +100,7 @@ export default function Todo() {
   const createTask = async () => {
     setLoading(true);
     try {
-      const llmRes = await fetch(`${API}/api/todos/llm`, {
+      const llmRes = await fetch("/api/todos/llm", {
         method: "POST",
         headers: { "Content-type": "application/json" },
         body: JSON.stringify(todo),
@@ -109,7 +108,7 @@ export default function Todo() {
       if (!llmRes.ok) throw new Error("AI could not create the task.");
       const tasks = await llmRes.json();
 
-      const saveRes = await fetch(`${API}/api/todos`, {
+      const saveRes = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-type": "application/json" },
         body: JSON.stringify(tasks),
@@ -161,7 +160,7 @@ export default function Todo() {
 
       // 3. Start 1s timer to trigger PUT with fresh state
       debounceRef.current = setTimeout(() => {
-        fetch(`${API}/api/todos`, {
+        fetch("/api/todos", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(nextTasks),
@@ -198,7 +197,7 @@ export default function Todo() {
   };
 
   const deleteTask = async (id: number) => {
-    const response = await fetch(`${API}/api/todos/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/todos/${id}`, { method: "DELETE" });
     if (response.ok) {
       setCheckedTasks((tasks) => tasks.filter((task) => task.id !== id));
       setToast("Task deleted");

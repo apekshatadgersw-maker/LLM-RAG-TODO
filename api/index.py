@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import todos
+from api._routers import todos
 
 app = FastAPI()
 
