@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { CircleCheckBig } from "lucide-react";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -24,25 +25,28 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body>
-        <div>
-          <h1 className="flex justify-center m-5">TASK APP</h1>
-          <hr></hr>
-          <div className="flex justify-center grid grid-rows-2">
-            {/* TODO:  NAV BAR */}
-            {/* <NavigationMenu>
-                <NavigationMenuList>
-                  <NavigationMenuItem className="flex">
-                    <NavigationMenuLink render={<Link href="/todo" />}>Home</NavigationMenuLink>
-                    <NavigationMenuLink render={<Link href="/dashboard" />}>Dashboard</NavigationMenuLink>
-                  </NavigationMenuItem>
-                </NavigationMenuList>
-              </NavigationMenu> */}
+      <body className="flex min-h-full flex-col bg-slate-50">
+        <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+          <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-8">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-800 text-white shadow-md shadow-teal-700/20">
+              <CircleCheckBig className="h-5 w-5" />
+            </span>
+            <div className="leading-tight">
+              <p className="font-semibold tracking-tight text-slate-900">Task App</p>
+              <p className="text-xs text-slate-500">Plan your day with Coach</p>
+            </div>
           </div>
-        </div>
-        <main>
+        </header>
+
+        <main className="flex-1">
           <Providers>{children}</Providers>
         </main>
+
+        <footer className="border-t bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-6 text-center text-sm text-slate-500 sm:px-8">
+            © {new Date().getFullYear()} Task App. All rights reserved.
+          </div>
+        </footer>
       </body>
     </html>
   );

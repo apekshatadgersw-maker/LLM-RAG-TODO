@@ -16,7 +16,7 @@ export const todoSchema = z.array(
     dueDate: z.string().describe("ISO date string for due date"),
     priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
     completed: z.boolean().default(false),
-    subTasks: z.array(subTaskSchema).describe("List of subtask objects"),
+    SubTasks: z.array(subTaskSchema).describe("List of subtask objects"),
   }),
 );
 

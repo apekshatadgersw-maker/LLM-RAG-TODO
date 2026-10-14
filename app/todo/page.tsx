@@ -1,10 +1,23 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 // import { addItem } from "../features/list/listSlice";
 // import { useAppDispatch, useAppSelector } from "../hook";
-import { Checkbox, CircularProgress, Backdrop } from "@mui/material";
+import { Checkbox, CircularProgress, Backdrop, Snackbar } from "@mui/material";
+import Alert from "@mui/material/Alert";
+import {
+  Bot,
+  CalendarDays,
+  CircleCheckBig,
+  Flame,
+  ListTodo,
+  PartyPopper,
+  Sparkles,
+  Trash2,
+  Zap,
+} from "lucide-react";
+
 interface advice {
   topTaskName: string;
   reason: string;
@@ -26,102 +39,92 @@ interface taskDb {
   createdAt: string;
   dueDate: string;
   priority: string;
-  subTasks: subTask[];
+  SubTasks: subTask[];
 }
+
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+const exampleTasks = [
+  "Prepare client presentation",
+  "Plan a weekend trip",
+  "Clean up my inbox",
+];
+
+const priorityStyle: Record<string, string> = {
+  HIGH: "bg-rose-50 text-rose-700 ring-rose-200",
+  MEDIUM: "bg-amber-50 text-amber-700 ring-amber-200",
+};
+
+// Greeting depends on the viewer's clock, so it is read on the client only
+// (the server render uses "Hello" to avoid a hydration mismatch).
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+const noopSubscribe = () => () => {};
+
 export default function Todo() {
   // Read Store
   //  const items = useAppSelector((state)=> state.list.items)
   //  const dispatch = useAppDispatch();
+  const greeting = useSyncExternalStore(noopSubscribe, getGreeting, () => "Hello");
   const [loading, setLoading] = useState(false);
+  const [coachLoading, setCoachLoading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const [coachAdvice, setCoachAdvice] = useState<advice>();
 
   const [checkedTask, setCheckedTasks] = useState<taskDb[]>([]);
   const [todo, setTodo] = useState("");
-  //   const handleAdd = () =>{
-  //     dispatch(addItem(todo))
-  //     setTodo("")
-  // }
+  // Empty string = no error, so nothing shows on first load.
+  const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
 
   // Load all tasks (with DB ids) from the database
   const fetchTasks = async (): Promise<taskDb[]> => {
-    const res = await fetch("/api/todos", { method: "GET" });
-    const tasks = await res.json();
-    return tasks.res;
+    try {
+      const res = await fetch(`${API}/api/todos`, { method: "GET" });
+      const tasks = await res.json();
+      if (tasks.ok) {
+        setError("");
+        return tasks.data;
+      }
+      setError(tasks.detail || "Could not load your tasks.");
+    } catch {
+      setError("Could not reach the server. Please check your connection.");
+    }
+    return [];
   };
 
   // Single step: LLM creates tasks -> save to DB -> reload list from DB
   const createTask = async () => {
     setLoading(true);
     try {
-      const llmRes = await fetch("/api/llm", {
+      const llmRes = await fetch(`${API}/api/todos/llm`, {
         method: "POST",
         headers: { "Content-type": "application/json" },
         body: JSON.stringify(todo),
       });
-      if (!llmRes.ok) throw new Error("Failed to create task with AI");
+      if (!llmRes.ok) throw new Error("AI could not create the task.");
       const tasks = await llmRes.json();
 
-      const saveRes = await fetch("/api/todos", {
+      const saveRes = await fetch(`${API}/api/todos`, {
         method: "POST",
         headers: { "Content-type": "application/json" },
         body: JSON.stringify(tasks),
       });
-      if (!saveRes.ok) throw new Error("Failed to save tasks");
+      if (!saveRes.ok) throw new Error("Could not save the task.");
 
       setCheckedTasks(await fetchTasks());
       setTodo("");
+      setToast("Task created ✨");
     } catch (err) {
       console.error(err);
-      alert("Could not create task. Please try again.");
+      setError(err instanceof Error ? err.message : "Could not create task. Please try again.");
     } finally {
       setLoading(false);
     }
-
-    //temp
-    // const temp: task[] = [{
-    //       "id": 1,
-    //       "type": "main",
-    //       "name": "Create presentation",
-    //       "createdAt": "2026-09-24",
-    //       "dueDate": "2026-09-25",
-    //       "priority": "HIGH",
-    //       "completed": false,
-    //       "subTasks": [
-    //         {
-    //           "id": 1,
-    //           "name": "Gather topic information and research",
-    //           "type": "subTask",
-    //           "completed": false
-    //         },
-    //         {
-    //           "id": 2,
-    //           "name": "Create outline",
-    //           "type": "subTask",
-    //           "completed": false
-    //         },
-    //         {
-    //           "id": 3,
-    //           "name": "Draft slide content",
-    //           "type": "subTask",
-    //           "completed": false
-    //         },
-    //         {
-    //           "id": 4,
-    //           "name": "Design slides and visual elements",
-    //           "type": "subTask",
-    //           "completed": false
-    //         },
-    //         {
-    //           "id": 5,
-    //           "name": "Review and practice presentation",
-    //           "type": "subTask",
-    //           "completed": false
-    //         }
-    //       ],
-    //   }
-    // ]
-    // setCheckedTasks(prev => [...prev, ...temp]);
   };
 
   const handleChange = (id: number, type: string, checked: boolean) => {
@@ -132,21 +135,21 @@ export default function Todo() {
           return {
             ...task,
             completed: checked,
-            subTasks: task.subTasks?.map((sub) => ({
+            SubTasks: task.SubTasks?.map((sub) => ({
               ...sub,
               completed: checked,
             })),
           };
         }
 
-        if (type === "subTask" && task.subTasks?.some((sub) => sub.id === id)) {
-          const updatedSubTasks = task.subTasks.map((sub) =>
+        if (type === "subTask" && task.SubTasks?.some((sub) => sub.id === id)) {
+          const updatedSubTasks = task.SubTasks.map((sub) =>
             sub.id === id ? { ...sub, completed: checked } : sub,
           );
           return {
             ...task,
             completed: updatedSubTasks.every((sub) => sub.completed),
-            subTasks: updatedSubTasks,
+            SubTasks: updatedSubTasks,
           };
         }
 
@@ -158,47 +161,107 @@ export default function Todo() {
 
       // 3. Start 1s timer to trigger PUT with fresh state
       debounceRef.current = setTimeout(() => {
-        fetch("/api/todos", {
+        fetch(`${API}/api/todos`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(nextTasks),
-        });
+        }).catch(() => setError("Could not save your changes."));
       }, 1000);
 
       return nextTasks;
     });
   };
+
   useEffect(() => {
-    fetchTasks().then(setCheckedTasks);
+    let ignore = false;
+    (async () => {
+      const tasks = await fetchTasks();
+      if (!ignore) setCheckedTasks(tasks);
+    })();
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const handleAskCoach = async () => {
-    setLoading(true)
-    const response = await fetch("/api/coach", {
-      method: "GET",
-    });
-    const data = await response.json();
-    setCoachAdvice(data.message);
-     setLoading(false)
+    setCoachLoading(true);
+    try {
+      const response = await fetch("/api/coach", { method: "GET" });
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      setCoachAdvice(data.message);
+    } catch {
+      setError("The coach is unavailable right now. Please try again.");
+    } finally {
+      setCoachLoading(false);
+    }
   };
 
+  const deleteTask = async (id: number) => {
+    const response = await fetch(`${API}/api/todos/${id}`, { method: "DELETE" });
+    if (response.ok) {
+      setCheckedTasks((tasks) => tasks.filter((task) => task.id !== id));
+      setToast("Task deleted");
+    } else {
+      setError("Could not delete the task.");
+    }
+  };
+
+  const doneCount = checkedTask.filter((task) => task.completed).length;
+  const highCount = checkedTask.filter((task) => task.priority === "HIGH" && !task.completed).length;
+  const percent = checkedTask.length ? Math.round((doneCount / checkedTask.length) * 100) : 0;
+  const allDone = checkedTask.length > 0 && doneCount === checkedTask.length;
+
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
-      {/* ===== Header + overall progress ===== */}
-      <div className="mx-auto mb-6 max-w-6xl">
-        <h1 className="text-2xl font-semibold sm:text-3xl">Today</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {checkedTask.filter((t) => t.completed).length} of{" "}
-          {checkedTask.length} tasks done
-        </p>
-        {/* Progress bar: plain Tailwind divs */}
-        <div className="mt-3 h-1.5 max-w-xs rounded-full bg-slate-200">
-          <div
-            className="h-1.5 rounded-full bg-teal-700"
-            style={{
-              width: `${checkedTask.length ? (checkedTask.filter((t) => t.completed).length / checkedTask.length) * 100 : 0}%`,
-            }}
-          />
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-10">
+      {/* ===== Hero: greeting + progress ring ===== */}
+      <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 p-6 text-white shadow-xl shadow-teal-900/10 sm:p-8">
+        {/* soft decorative glows */}
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-emerald-300/20 blur-3xl" />
+
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-teal-100">{greeting} 👋</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
+              What&apos;s your focus today?
+            </h1>
+            <div className="mt-4 flex flex-wrap gap-2 text-sm">
+              <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1">
+                <ListTodo className="h-4 w-4" /> {checkedTask.length} tasks
+              </span>
+              <span className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1">
+                <CircleCheckBig className="h-4 w-4" /> {doneCount} done
+              </span>
+              {highCount > 0 && (
+                <span className="flex items-center gap-1.5 rounded-full bg-rose-400/30 px-3 py-1">
+                  <Flame className="h-4 w-4" /> {highCount} urgent
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Progress ring */}
+          <div className="relative grid h-28 w-28 shrink-0 place-items-center self-center">
+            <CircularProgress
+              variant="determinate"
+              value={100}
+              size={112}
+              thickness={4}
+              sx={{ position: "absolute", color: "rgba(255,255,255,0.15)" }}
+            />
+            <CircularProgress
+              variant="determinate"
+              value={percent}
+              size={112}
+              thickness={4}
+              sx={{ position: "absolute", color: "#fff", "& circle": { strokeLinecap: "round" } }}
+            />
+            <div className="text-center">
+              <p className="text-2xl font-bold">{percent}%</p>
+              <p className="text-xs text-teal-100">complete</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -207,16 +270,35 @@ export default function Todo() {
         sx={(theme) => ({ color: "#fff", zIndex: theme.zIndex.drawer + 1 })}
         open={loading}
       >
-      <CircularProgress color="inherit" />
+        <div className="flex flex-col items-center gap-3">
+          <CircularProgress color="inherit" />
+          <span className="text-sm">AI is breaking down your task...</span>
+        </div>
       </Backdrop>
 
-      {/* ===== Grid: 1 column on mobile, 2 on desktop ===== */}
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* ----- Left (2/3 width): Tasks ----- */}
-        <div className="space-y-4 lg:col-span-2">
+      {error && (
+        <Alert severity="error" onClose={() => setError("")} className="mb-6">
+          {error}
+        </Alert>
+      )}
+
+      {/* All done celebration */}
+      {allDone && (
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800 animate-in fade-in zoom-in-95">
+          <PartyPopper className="h-6 w-6 shrink-0" />
+          <div>
+            <p className="font-semibold">All done for today! 🎉</p>
+            <p className="text-sm text-emerald-700">Great work. Take a break — you earned it.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Grid: 1 column on mobile, 2/3 + 1/3 on desktop ===== */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
           {/* Create task */}
-          <div className="rounded-2xl border bg-white p-5">
-            <p className="mb-2 text-sm font-medium">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="mb-3 text-sm font-medium text-slate-700">
               What do you need to get done?
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -224,34 +306,61 @@ export default function Todo() {
                 placeholder="e.g. Prepare client presentation"
                 value={todo}
                 onChange={(e) => setTodo(e.target.value)}
-                className="h-11 text-base"
+                onKeyDown={(e) => e.key === "Enter" && todo && !loading && createTask()}
+                className="h-11 rounded-xl text-base"
               />
               <Button
                 onClick={createTask}
                 disabled={loading || !todo}
-                className="h-11 bg-teal-700 text-white hover:bg-teal-800 cursor-pointer"
+                className="h-11 cursor-pointer rounded-xl bg-teal-700 px-5 text-white hover:bg-teal-800"
               >
-                  Create with AI
+                <Sparkles className="h-4 w-4" />
+                Create with AI
               </Button>
             </div>
+            <p className="mt-2 text-xs text-slate-400">
+              AI splits your task into small, doable steps.
+            </p>
           </div>
 
           {/* Task list */}
-          <div className="rounded-2xl border bg-white">
-            <div className="flex items-center justify-between border-b px-5 py-3">
-              <h2 className="font-medium">Your tasks</h2>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <h2 className="font-semibold text-slate-900">Your tasks</h2>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                {checkedTask.length}
+              </span>
             </div>
 
+            {/* Empty state: one click fills the input with an example */}
             {checkedTask.length === 0 && (
-              <p className="py-10 text-center text-sm text-slate-500">
-                No tasks yet. Add one above.
-              </p>
+              <div className="flex flex-col items-center px-6 py-12 text-center">
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-teal-50 text-teal-700">
+                  <ListTodo className="h-7 w-7" />
+                </span>
+                <p className="mt-4 font-medium text-slate-800">Your list is empty</p>
+                <p className="mt-1 text-sm text-slate-500">Try one of these to see the AI in action:</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {exampleTasks.map((example) => (
+                    <button
+                      key={example}
+                      onClick={() => setTodo(example)}
+                      className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-800"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             {checkedTask.map((item) => {
-              const done = item.subTasks.filter((s) => s.completed).length;
+              const done = item.SubTasks.filter((s) => s.completed).length;
               return (
-                <div key={item.id} className="border-b px-4 py-4 last:border-0">
+                <div
+                  key={item.id}
+                  className="border-b border-slate-100 px-4 py-4 transition-colors last:border-0 hover:bg-slate-50/60 animate-in fade-in slide-in-from-bottom-1"
+                >
                   {/* Main task row */}
                   <div className="flex items-start gap-2">
                     <Checkbox
@@ -266,55 +375,56 @@ export default function Todo() {
                         className={
                           item.completed
                             ? "font-medium text-slate-400 line-through"
-                            : "font-medium"
+                            : "font-medium text-slate-900"
                         }
                       >
                         {item.name}
                       </p>
-                      {/* Priority dot + due date */}
-                      <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className={`h-2 w-2 rounded-full ${item.priority === "HIGH" ? "bg-rose-500" : item.priority === "MEDIUM" ? "bg-amber-400" : "bg-slate-400"}`}
-                          />
+                      {/* Priority badge + due date */}
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-medium ring-1 ring-inset ${priorityStyle[item.priority] ?? "bg-slate-50 text-slate-600 ring-slate-200"}`}
+                        >
                           {item.priority}
                         </span>
-                        <span>
-                          Due {new Date(item.dueDate).toLocaleDateString()}
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {new Date(item.dueDate).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="text-slate-400 hover:text-rose-600"
+                      size="icon"
+                      aria-label="Delete task"
+                      className="cursor-pointer text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                      onClick={() => deleteTask(item.id)}
                     >
-                      Delete
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
 
-                  {/* Subtasks */}
-                  {item.subTasks.length > 0 && (
-                    <div className="ml-12 mt-2">
-                      {/* Subtask progress bar */}
+                  {/* SubTasks */}
+                  {item.SubTasks.length > 0 && (
+                    <div className="ml-11 mt-3 border-l-2 border-slate-100 pl-3">
                       <div className="mb-1 flex items-center gap-3">
-                        <div className="h-1.5 flex-1 rounded-full bg-slate-200">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
                           <div
-                            className="h-1.5 rounded-full bg-teal-700"
+                            className="h-full rounded-full bg-teal-500 transition-all duration-500"
                             style={{
-                              width: `${(done / item.subTasks.length) * 100}%`,
+                              width: `${(done / item.SubTasks.length) * 100}%`,
                             }}
                           />
                         </div>
                         <span className="text-xs text-slate-500">
-                          {done}/{item.subTasks.length}
+                          {done}/{item.SubTasks.length}
                         </span>
                       </div>
 
-                      {item.subTasks.map((sub) => (
+                      {item.SubTasks.map((sub) => (
                         <label
                           key={sub.id}
-                          className="flex cursor-pointer items-center rounded-md hover:bg-slate-50"
+                          className="flex cursor-pointer items-center rounded-lg hover:bg-slate-100/70"
                         >
                           <Checkbox
                             size="small"
@@ -344,37 +454,70 @@ export default function Todo() {
         </div>
 
         {/* ----- Right (1/3 width): Coach ----- */}
-        <div className="h-fit rounded-2xl bg-teal-900 p-5 text-white">
-          <h2 className="font-semibold">Your coach</h2>
-
-          <div className="mt-4 flex flex-col gap-2">
-            <Button
-              onClick={handleAskCoach}
-              className="h-11 bg-white text-teal-900 hover:bg-white/90 cursor-pointer"
-            >                
-              Ask Coach 
-            </Button>
+        <div className="h-fit rounded-2xl bg-gradient-to-br from-slate-800 to-slate-950 p-6 text-white shadow-lg lg:sticky lg:top-24">
+          <div className="flex items-center gap-3">
+            <span className="relative grid h-10 w-10 place-items-center rounded-xl bg-teal-500/20 text-teal-300">
+              <Bot className="h-5 w-5" />
+              {/* "online" dot */}
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-800" />
+            </span>
+            <div>
+              <h2 className="font-semibold">Your coach</h2>
+              <p className="text-xs text-white/50">Not sure where to start? Ask me.</p>
+            </div>
           </div>
+
+          <Button
+            onClick={handleAskCoach}
+            disabled={coachLoading || checkedTask.length === 0}
+            className="mt-5 h-11 w-full cursor-pointer rounded-xl bg-teal-400 font-medium text-slate-900 hover:bg-teal-300"
+          >
+            {coachLoading ? <CircularProgress size={16} color="inherit" /> : <Sparkles className="h-4 w-4" />}
+            {coachLoading ? "Thinking..." : coachAdvice ? "Ask again" : "What should I do first?"}
+          </Button>
 
           {/* Coach answer */}
           {coachAdvice ? (
-            <div className="mt-6 space-y-3">
-              <p className="text-sm text-white/60">Do this first</p>
-              <p className="text-xl font-semibold">{coachAdvice.topTaskName}</p>
-              <p className="text-sm text-white/85">{coachAdvice.reason}</p>
-              {coachAdvice?.deferTaskName && (
-                <p className="border-t border-white/15 pt-3 text-sm text-white/60">
+            <div className="mt-6 space-y-3 rounded-xl bg-white/5 p-4 ring-1 ring-white/10 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium uppercase tracking-wider text-teal-300">
+                  Do this first
+                </p>
+                {coachAdvice.energyLevel && (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-xs text-amber-300">
+                    <Zap className="h-3 w-3" /> {coachAdvice.energyLevel} energy
+                  </span>
+                )}
+              </div>
+              <p className="text-lg font-semibold">{coachAdvice.topTaskName}</p>
+              <p className="text-sm leading-relaxed text-white/75">{coachAdvice.reason}</p>
+              {coachAdvice.deferTaskName && (
+                <p className="border-t border-white/10 pt-3 text-sm text-white/50">
                   Can wait: {coachAdvice.deferTaskName}
                 </p>
               )}
             </div>
           ) : (
-            <p className="mt-6 text-sm text-white/60">
-              Ask the coach which task to start with Today.
+            <p className="mt-4 text-sm leading-relaxed text-white/50">
+              {checkedTask.length === 0
+                ? "Add a task first, then I'll tell you where to start."
+                : "I'll look at your open tasks and pick the one to start with."}
             </p>
           )}
         </div>
       </div>
+
+      {/* Small toast instead of browser alert() */}
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={2500}
+        onClose={() => setToast("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setToast("")}>
+          {toast}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }
