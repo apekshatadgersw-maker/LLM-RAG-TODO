@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { CircleCheckBig } from "lucide-react";
+import { UserMenu } from "@/components/user-menu";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <p className="font-semibold tracking-tight text-slate-900">Task App</p>
               <p className="text-xs text-slate-500">Plan your day with Coach</p>
             </div>
+            <UserMenu />
           </div>
         </header>
 

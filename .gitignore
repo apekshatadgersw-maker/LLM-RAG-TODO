@@ -46,3 +46,11 @@ next-env.d.ts
 
 /lib/generated/prisma
 .skills-lock.json
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+venv/
+.venv/
